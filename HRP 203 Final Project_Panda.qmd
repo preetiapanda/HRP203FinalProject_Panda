@@ -1,0 +1,283 @@
+---
+title: "Associations Between Cardiac Events and Cost: A Retrospective Cross-Sectional Study"
+author: "Preeti Panda MD"
+format: html
+editor: visual
+bibliography: references.bib
+---
+
+```{r}
+#| label: load-packages
+#| include: false
+library(commonmark)
+library(markdown)
+library(rmarkdown)
+library(readxl)
+library(tidyverse)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(Hmisc)
+library(coefplot)
+library(rmarkdown)
+library(knitr)
+library(kableExtra)
+library(readr)
+library(broom)
+```
+
+**Introduction**
+
+Cardiac events have significant effects on morbidity and mortality. Heart disease continues to account for the leading cause of death among adults in the United States [@Kalogeropoulos2022].
+
+Effects of smoking on cardiac events have been well studied. It is accepted that smoking status leads to increased risk of cardiac disease, including acute myocardial infarction [@Ambrose2004]. While cardiac disease was initially thought to be higher in men, recent research has shown that women also have unique risks for cardiac disease, and may present with different symptoms leading to delays in diagnosis [@Mehta2016].
+
+Cardiac pathologies, such as acute myocardial infarction, frequently require critical care. As cardiac disease tends to affect older populations who tend have increased use of medicare, critical care utilization for cardiac events has the potential to burden costs to the healthcare system. It is therefore important to better understand interactions between risk factors for cardiovascular disease, acute cardiac events, and costs, to inform policies that can reduce the cost burden to both the healthcare system and society.
+
+The objective of this study was to understand the associations of cardiac events and cost of care during single inpatient admissions.
+
+**Methods**
+
+*Study Design*
+
+This was a retrospective observational study of single inpatient admission stays. We followed the STROBE checklist for reporting on cross-sectional studies [@Skrivankova2021].
+
+*Setting*
+
+We utilized a health claims database that encompassed data from a county hospital system located in Northern California. Data from January 2022 - December 2024 was included in the study.
+
+*Participants*
+
+The inclusion criteria for this study was: 1) Individuals aged 18 and over, and 2) inpatient admission to the acute care floor or intensive care unit.
+
+We excluded patients who were admitted for observation with hospital stays less than 24 hours. We also excluded patients who had post-operative cardiac events and patients who had concurrent stroke in the same admission.
+
+*Variables*
+
+We collected variables related to cost of hospital stay, presence of cardiac event, gender, age, and smoking status. We defined a cardiac event as acute myocardial infarction, stable angina, unstable angina, and unstable arrhythmia.
+
+The primary outcome for this study was cost. The primary predictor was presence of cardiac event. Gender, age and smoking status were included as co-variates.
+
+*Data Measurement and Quantitative Variables*
+
+Cost of stay was measured as a continuous variable rounded to the nearest dollar. Presence of cardiac event, gender and smoking status were measured as binary variables. Age was measured as a continuous variable in years.
+
+*Study Size*
+
+Study size was determined by the number of available observations meeting the inclusion criteria in the designated study period. We performed a sample size calculation and determined at least 3,500 observations were needed to achieve statistical significance for the outcome of interest.
+
+*Statistical Methods*
+
+We utilized descriptive statistics to describe the cohort, including frequency, percentages, median values, and interquartile range.
+
+We performed linear regression to understand the relationship between cardiac events and cost of care. We controlled for smoking status, gender, and age.
+
+The linear regression model was as follows:
+
+cost=β~0~ + β~1~⋅cardiac + β~2~⋅smoke + β~3~⋅age + β~4~⋅gender + ϵ
+
+The variable "cost" denotes cost of care, "cardiac" denotes presence of cardiac event, "smoke" denotes smoking status.
+
+**Results**
+
+The analysis included data from 5,000 patients (**Table 1**). Patients aged 18-40 made up the majority of the cohort (N=2,312, 46%), with 1,048 patients aged 40-50 (21%), 1,061 patients aged 50-60 (21%) and 579 patients aged over 60 (12%). Fifty-one percent of the cohort was male and 49% of the cohort was female. Smokers accounted for 10% of the cohort. Only 190 patients in the cohort had cardiac events during the hospital stay. The median cost of stay for all encounters was \$9,664.
+
+Individuals without cardiac events during the hospital stay were found to have a lower cost of stay than patients who had cardiac events (**Figure 1**). From the regression analysis, we found the presence of a cardiac event during the hospital stay increased cost of stay by \$289 (95% CI 259.39 - 319.06, p \<0.001). Smoking and increased age were associated with increases in cost of stay, while female sex was associated with decrease in cost of stay (**Figure 2, Table 1**).
+
+```{r}
+#| label: load-data
+#| include: false
+#| echo: false
+
+#Import data
+data <- read_excel("/Users/preeti/Downloads/cohort.xlsx")
+
+#descriptive statistics of variables
+describe(data)
+summary_table <- summary(data)
+
+
+# Age summary
+age_summary <- data %>%
+  mutate(age_group = case_when(
+    age < 40 ~ "18-40",
+    age >= 40 & age < 50 ~ "40-50",
+    age >= 50 & age < 60 ~ "50-60",
+    age >= 60 ~ "Over 60"
+  )) %>%
+  group_by(age_group) %>%
+  summarise(N = n()) %>%
+  mutate(Percent = (N / sum(N)) * 100) %>%
+  rename(Category = age_group)
+
+age_stats <- data %>%
+  summarise(
+    Median = median(age, na.rm = TRUE),
+    IQR = IQR(age, na.rm = TRUE)
+  )
+
+# Sex summary
+sex_summary <- data %>%
+  mutate(Sex = ifelse(female == 1, "Female", "Male")) %>%
+  group_by(Sex) %>%
+  summarise(N = n()) %>%
+  mutate(Percent = (N / sum(N)) * 100) %>%
+  rename(Category = Sex)
+
+# Cardiac events summary
+cardiac_summary <- data %>%
+  mutate(cardiac = ifelse(cardiac == 1, "Yes", "No")) %>%
+  group_by(cardiac) %>%
+  summarise(N = n()) %>%
+  mutate(Percent = (N / sum(N)) * 100) %>%
+  rename(Category = cardiac)
+
+# Smokers summary
+smokers_summary <- data %>%
+  mutate(Smokers = ifelse(smoke == 1, "Yes", "No")) %>%
+  group_by(Smokers) %>%
+  summarise(N = n()) %>%
+  mutate(Percent = (N / sum(N)) * 100) %>%
+  rename(Category = Smokers)
+
+# Cost summary
+cost_summary <- data %>%
+  summarise(
+    Median = median(cost, na.rm = TRUE),
+    IQR = IQR(cost, na.rm = TRUE)
+  )
+
+# Combine all summaries into a single table
+demographics_table <- bind_rows(
+  age_summary %>% mutate(Variable = "Age"),
+  sex_summary %>% mutate(Variable = "Sex"),
+  cardiac_summary %>% mutate(Variable = "Cardiac Events"),
+  smokers_summary %>% mutate(Variable = "Smokers"),
+  data.frame(
+    Variable = "Cost of Stay",
+    Category = c("Median Cost", "IQR Cost"),
+    N = NA,
+    Percent = NA
+  ) %>%
+  mutate(
+    Median = cost_summary$Median,
+    IQR = cost_summary$IQR,
+    Category = as.character(Category) # Ensure Category is character type
+  )
+) %>%
+  select(Variable, Category, N, Percent, Median, IQR)
+
+
+
+```
+
+```{r}
+#| label: summary-table
+#| warning: false
+#| echo: false
+
+# Print the table
+demographics_table %>%
+  kable(format = "html", col.names = c("Variable", "Category", "N", "Percent", "Median", "IQR")) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>%
+  add_header_above(c(" " = 2, "Frequency" = 2, "Statistics" = 2)) %>%
+  add_header_above(c("Table 1: Demographic Characteristics of Cohort" = 6)) %>%
+  column_spec(1, bold = TRUE) %>%
+  column_spec(2, width = "20em") %>%
+  row_spec(0, bold = TRUE, background = "#D3D3D3")
+
+```
+
+{{< pagebreak >}}
+
+```{r}
+#| label: regression-analysis
+#| include: false
+#| echo: false
+
+#linear regression model: 
+#effect of cardiac events (predictor) on cost of care (outcome)
+#control for smoking status, age and gender
+model <- lm(cost~cardiac+smoke+age+female, data=data)
+
+summary(model)
+
+```
+
+```{r}
+#| label: descriptive-plot
+#| warning: false
+#| echo: false
+
+
+# Figure 1: descriptive plot of cost vs cardiac events
+ggplot(data, aes(x = factor(cardiac), y = cost)) +
+  geom_boxplot() +
+  geom_jitter(width = 0.2, alpha = 0.5) +
+  labs(title = "Figure 1. Cost of Stay vs Cardiac Events",
+       x = "Cardiac Events (0 = No, 1 = Yes)",
+       y = "Cost of Stay ($)") +
+  theme_minimal()
+```
+
+{{< pagebreak >}}
+
+```{r}
+#| label: regression-plot
+#| warning: false
+#| echo: false
+#Figure 2: regression figure
+# Scatter plot with regression line
+ggplot(data, aes(x = age, y = cost)) +
+  geom_point(aes(color = cardiac), alpha = 0.6) +  # Plot points with color indicating cardiac events
+  geom_smooth(method = "lm", se = FALSE, color = "blue") +  # Add regression line
+  labs(title = "Figure 2. Regression of Cost and Cardiac Events by Age",
+       x = "Age",
+       y = "Cost") +
+  theme_minimal()
+
+```
+
+```{r}
+#| label: regression-table-output
+#| warning: false
+#| echo: false
+
+# Extract model summary
+model_summary <- tidy(model)
+
+model_summary <- model_summary %>%
+  mutate(p.value = round(p.value, 3))
+
+#confidence intervals model
+# Compute 95% confidence intervals
+conf_intervals <- confint(model)
+
+# Add the confidence intervals to the model summary
+model_summary <- model_summary %>%
+  mutate(`2.5 %` = conf_intervals[, 1],
+         `97.5 %` = conf_intervals[, 2])
+
+# Round p-values and confidence intervals to 3 decimal places
+model_summary <- model_summary %>%
+  mutate(p.value = round(p.value, 3),
+         `2.5 %` = round(`2.5 %`, 3),
+         `97.5 %` = round(`97.5 %`, 3))
+
+# Create the table
+model_summary %>%
+  kable(col.names = c("Term", "Estimate", "Standard Error", "Statistic", "P-value", "95% CI Lower", "95% CI Upper"),
+        caption = "Table 2: Regression Model Output") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>%
+  column_spec(1, bold = TRUE) %>%
+  row_spec(0, bold = TRUE, background = "#D3D3D3")
+
+```
+
+{{< pagebreak >}}
+
+Link to GitHub Repository:
+
+https://github.com/preetiapanda/HRP203FinalProject_Panda
+
+## 
